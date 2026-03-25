@@ -1,3 +1,4 @@
+print("--- 这是全新版本的脚本 ---")
 import os, requests
 from playwright.sync_api import sync_playwright
 
