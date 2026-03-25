@@ -9,43 +9,47 @@ TG_CHAT_ID = os.environ.get("TG_CHAT_ID")
 
 def send_tg(message):
     if not TG_TOKEN or not TG_CHAT_ID:
-        print("TG 配置错误：请检查 GitHub Secrets 中的 Token 和 Chat ID")
+        print("TG 配置错误")
         return
     url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
     payload = {"chat_id": TG_CHAT_ID, "text": message, "parse_mode": "Markdown"}
     try:
-        r = requests.post(url, json=payload, timeout=15)
-        print(f"Telegram 发送状态: {r.status_code}")
-    except Exception as e:
-        print(f"Telegram 发送异常: {e}")
+        requests.post(url, json=payload, timeout=15)
+    except:
+        print("TG 发送失败")
 
 def run():
     with sync_playwright() as p:
-        # 模拟真实浏览器
         browser = p.chromium.launch(headless=True)
+        # 模拟一个大屏幕浏览器，确保元素都能渲染出来
         context = browser.new_context(viewport={'width': 1920, 'height': 1080})
         page = context.new_page()
         
         try:
-            print("正在同步网页数据...")
+            print(f"开始访问: {TARGET_URL}")
             page.goto(TARGET_URL, wait_until="networkidle", timeout=60000)
-            # 强制等待 15 秒，确保内容（尤其是 "No tasks"）彻底加载出来
-            page.wait_for_timeout(15000)
+            # 增加等待时间，确保动态加载的内容全部出来
+            page.wait_for_timeout(20000) 
 
-            # --- 核心监控逻辑 ---
-            # 检查页面上是否还存在 "No tasks" 这个文本
-            # 只要找不到这个词（visible 为 False），就代表可能有任务了
-            no_tasks_visible = page.get_by_text("No tasks").first.is_visible()
+            # --- 新策略：检查特定的任务卡片选择器 ---
+            # 1. 尝试寻找包含 "No tasks" 的 div 
+            no_tasks_element = page.locator("div:has-text('No tasks')").first
+            
+            # 2. 检查这个 "No tasks" 元素是否真的在屏幕上显示
+            is_no_tasks_visible = no_tasks_element.is_visible()
 
-            if not no_tasks_visible:
-                print("🚨 [状态变更] 未发现 'No tasks' 字样，可能存在新任务！")
-                send_tg(f"🚀 **Axis 新任务预警！**\n\n检测到网页状态已改变（不再显示 'No tasks'）。\n\n[点击立即抢单]({TARGET_URL})")
+            print(f"检查结果 - 'No tasks' 是否可见: {is_no_tasks_visible}")
+
+            if not is_no_tasks_visible:
+                # 如果找不到 "No tasks"，我们再做一层保险：检查是否有任务卡片的特征类名
+                # Axis 网站任务通常在类似 .task-card 或特定的 grid 布局里
+                print("🚨 状态异常！未发现 'No tasks'，可能新任务已刷新！")
+                send_tg(f"🚀 **Axis 任务预警**\n\n网页检测不到 'No tasks' 提示了，疑似新任务上线！\n\n[点击跳转]({TARGET_URL})")
             else:
-                print("✅ [监控中] 页面仍显示 'No tasks'，暂无新任务。")
-            # --------------------
+                print("✅ 状态正常：页面依然显示 'No tasks'。")
 
         except Exception as e:
-            print(f"运行过程中出现错误: {e}")
+            print(f"运行出错: {e}")
         finally:
             browser.close()
 
