@@ -37,7 +37,7 @@ def run():
             print(f"当前页面共检测到 {task_count} 个任务。")
 
             # 如果任务数量 > 3，说明除了那个 Water Flower，还有别的任务上线了
-            if task_count > 3:
+            if task_count > 1:
                 print(f"🚨 发现新任务！当前总计: {task_count} 个")
                 send_tg(f"🚀 **Axis 任务预警：新单上线！**\n\n检测到当前有 **{task_count}** 个任务（已排除 Bug 练习任务）。\n\n[点击前往抢单](https://hub.axisrobotics.ai/?tab=hub)")
             else:
