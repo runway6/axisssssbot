@@ -39,8 +39,7 @@ def run():
                 # 发送格式化消息
                 msg = (
                     f"🚀 **Axis 任务预警：新单上线！**\n\n"
-                    f"当前总任务数：{task_count} 个\n"
-                    f"✨ **实际新增任务：{new_tasks_actual} 个**\n\n"
+                    f"✨ **新增任务：{new_tasks_actual} 个**\n\n"
                     f"[点击前往抢单](https://hub.axisrobotics.ai/?tab=hub)"
                 )
                 send_tg(msg)
