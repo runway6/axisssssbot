@@ -1,5 +1,5 @@
-import os, requests
-from playwright.sync_api import sync_playwright
+import os
+import requests
 
 def send_tg(msg):
     token = os.environ.get("TG_TOKEN")
@@ -9,48 +9,60 @@ def send_tg(msg):
         try:
             requests.post(url, json={"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"}, timeout=15)
         except Exception as e:
-            print(f"Telegram 发送异常: {e}")
+            print(f"TG 发送异常: {e}")
 
 def run():
-    print("--- 启动过滤 Bug 任务版监控 (V4.2) ---")
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(viewport={'width': 1920, 'height': 1080})
-        page = context.new_page()
+    api_url = "https://hub.axisrobotics.ai/api/tasks"
+    memory_file = "notified_ids.txt"
+    print(f"--- 启动任务进度深度扫描 (V7.0) ---")
+
+    # 1. 加载已经通知过的任务 ID，防止重复轰炸
+    if os.path.exists(memory_file):
+        with open(memory_file, "r") as f:
+            notified_ids = set(f.read().splitlines())
+    else:
+        notified_ids = set()
+    
+    try:
+        response = requests.get(api_url, timeout=30)
+        response.raise_for_status()
+        data = response.json()
         
-        try:
-            print("正在访问 Axis Hub...")
-            page.goto("https://hub.axisrobotics.ai/?tab=hub", wait_until="networkidle", timeout=60000)
-            
-            print("等待列表渲染 (20s)...")
-            page.wait_for_timeout(20000) 
+        all_tasks = data.get("tasks", [])
+        new_active_tasks = []
 
-            # 核心过滤逻辑：统计 "Difficulty" 出现次数
-            task_cards = page.get_by_text("Difficulty")
-            task_count = task_cards.count()
-            
-            print(f"当前页面共检测到 {task_count} 个任务。")
+        # 2. 核心逻辑：遍历所有任务，寻找进度不足 100% 的
+        for task in all_tasks:
+            task_id = str(task.get("id"))
+            progress = task.get("progress", 100.0)
+            task_name = task.get("name", "未知任务")
 
-            # 如果总任务数 x > 3，说明有新任务
-            if task_count > 3:
-                new_tasks_actual = task_count - 3  # 计算实际新增数量 (x-3)
-                print(f"🚨 发现新任务！当前总计: {task_count} 个，实际新增: {new_tasks_actual} 个")
-                
-                # 发送格式化消息
-                msg = (
-                    f"🚀 **Axis 任务预警：新单上线！**\n\n"
-                    f"✨ **新增任务：{new_tasks_actual} 个**\n\n"
-                    f"[点击前往抢单](https://hub.axisrobotics.ai/?tab=hub)"
-                )
-                send_tg(msg)
-            else:
-                # 只有 3 个或更少时，判定为常驻 Bug/练习任务，保持静默
-                print(f"✅ 检查完毕：当前有 {task_count} 个任务，未达到报警阈值，保持静默。")
-                
-        except Exception as e:
-            print(f"脚本运行出错: {e}")
-        finally:
-            browser.close()
+            # 如果进度小于 100 且 之前没通知过这个 ID
+            if progress < 100.0 and task_id not in notified_ids:
+                new_active_tasks.append(f"• {task_name} (当前进度: {progress}%)")
+                notified_ids.add(task_id)
+
+        # 3. 发送预警
+        if new_active_tasks:
+            print(f"🚨 发现 {len(new_active_tasks)} 个未满 100% 的新任务！")
+            tasks_str = "\n".join(new_active_tasks)
+            msg = (
+                f"🔥 **Axis 实时新任务预警！**\n\n"
+                f"检测到以下任务进度不足 100%，疑似刚上线：\n\n"
+                f"{tasks_str}\n\n"
+                f"[立即前往抢单](https://hub.axisrobotics.ai/?tab=hub)"
+            )
+            send_tg(msg)
+            
+            # 更新记忆文件
+            with open(memory_file, "w") as f:
+                f.write("\n".join(notified_ids))
+            print("✅ 记忆已更新。")
+        else:
+            print("✅ 扫描完毕：所有任务均已达 100% 或已通知，保持静默。")
+
+    except Exception as e:
+        print(f"扫描出错: {e}")
 
 if __name__ == "__main__":
     run()
