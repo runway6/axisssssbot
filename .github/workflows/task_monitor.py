@@ -2,7 +2,7 @@ name: Axis_Progress_Monitor
 
 on:
   schedule:
-    - cron: '*/5 * * * *' # 建议调快到 5 分钟，因为进度监控更需要时效性
+    - cron: '*/5 * * * *' # 每 5 分钟运行一次
   workflow_dispatch:
 
 jobs:
@@ -27,7 +27,7 @@ jobs:
         env:
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-        run: task_monitor.py
+        run: python task_monitor.py # 这里已经修改对齐
 
       - name: Save memory back to Repo
         run: |
