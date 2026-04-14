@@ -1,6 +1,10 @@
 name: Axis_Progress_Monitor
 
 on:
+  # ⬇️ 新增的“天线”，专门用来接收 cron-job.org 发来的 external_trigger 信号
+  repository_dispatch:
+    types: [external_trigger] 
+  # ⬇️ 原来的闹钟保留作为双重保险
   schedule:
     - cron: '*/5 * * * *' # 每 5 分钟运行一次
   workflow_dispatch:
